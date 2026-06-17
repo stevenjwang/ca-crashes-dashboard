@@ -1,0 +1,148 @@
+---
+title: "2019 CA Crashes"
+format: dashboard
+server: shiny
+---
+
+```{r}
+#| context: setup
+
+library(tidyverse)     # ecosystem of data science packages
+library(shiny)
+library(leaflet)       # web interactive maps
+library(sf)            # "simple features" (vector data for maps)
+library(plotly)        # web interactive plots
+library(ggiraph)       # make ggplots into interactive plots
+library(RColorBrewer)  # optional: nice color schemes
+
+crashes = read_csv("crashes_geospatial_2019.csv")
+crashes = crashes |> mutate(COUNTY = str_remove(LOCATION, ".*,\\s*"))
+```
+
+
+# {.sidebar width="300px"}
+
+
+```{r}
+# input to select county
+selectInput(
+  inputId = "county",
+  label = "County:",
+  choices = sort(unique(str_to_title(crashes$COUNTY))),
+  selected = "Alameda")
+```
+
+```{r}
+# input to select violation (PCF_VIOL_CATEGORY)
+selectInput(
+  inputId = "pcf",
+  label = "Primary Collision Factor:",
+  choices = sort(unique(crashes$PCF_VIOL_CATEGORY)), 
+  selected = "DUI")
+```
+
+```{r}
+# input to choose type of collision (TYPE_OF_COLLISION)
+checkboxGroupInput(
+  inputId = "type",
+  label = "Collision type:",
+  choices = sort(unique(str_to_title(crashes$TYPE_OF_COLLISION))),
+  selected = sort(unique(str_to_title(crashes$TYPE_OF_COLLISION))))
+```
+
+```{r}
+# input to decide whether to color code by severity (COLLISION_SEVERITY)
+radioButtons(
+  inputId = "color",
+  label = "Color by name?",
+  choices = c("Yes", "No"),
+  selected = "Yes")
+```
+
+```{r}
+# input to choose date range
+dateRangeInput(
+  inputId = "dates",
+  label = "Date range", 
+  start = "2019-01-01",
+  end = "2019-12-31"
+)
+```
+
+```{r}
+# input to change leaflet provider tiles
+selectInput(
+  inputId = "provider",
+  label = "Select map provider:",
+  choices = c(
+    "CartoDB.Positron",
+    "CartoDB.DarkMatter",
+    "Esri.WorldTerrain",
+    "Esri.WorldShadedRelief",
+    "NASAGIBS.ViirsEarthAtNight2012",
+    "USGS.USImageryTopo"), 
+  selected = "CartoDB.Positron")
+```
+
+
+
+# Map
+
+## Row
+
+```{r}
+# output: leaflet map
+leafletOutput(outputId = "map")
+```
+
+
+# Collision Types
+
+## Row
+
+```{r}
+# output(s) for tab-2
+plotlyOutput(outputId = "plot")
+```
+
+
+
+```{r}
+#| context: server
+
+filtered_data = reactive({
+  crashes %>%
+    filter(
+      str_to_title(COUNTY) == input$county,
+      PCF_VIOL_CATEGORY == input$pcf,
+      str_to_title(TYPE_OF_COLLISION) %in% input$type,
+      DATETIME >= input$dates[1],
+      DATETIME <= input$dates[2]
+    )
+})
+
+# 2. Render the Leaflet Map (Tab 1)
+output$map = renderLeaflet({
+  pal = colorFactor(palette = "Set1", domain = crashes$COLLISION_SEVERITY)
+  
+  leaflet(data = filtered_data()) %>%
+    addProviderTiles(input$provider) %>%
+    addCircleMarkers(
+      lng = ~POINT_X, 
+      lat = ~POINT_Y,
+      color = if(input$color == "Yes") ~pal(COLLISION_SEVERITY) else "blue",
+      radius = 5,
+      stroke = FALSE, 
+      fillOpacity = 0.7,
+      popup = ~paste("Severity:", COLLISION_SEVERITY, "<br>",
+                     "Type:", TYPE_OF_COLLISION))
+})
+
+
+# assemble graphic for tab 2
+output$plot = renderPlotly({
+ggplotly(
+  ggplot(filtered_data(), aes(x = TYPE_OF_COLLISION)) +
+    geom_bar() + theme_minimal())
+})
+```

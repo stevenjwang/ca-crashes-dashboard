@@ -1,0 +1,10 @@
+name: project5
+title:
+username: stevenjwang
+account: stevenjwang
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17159638
+bundleId: 11864364
+url: https://stevenjwang.shinyapps.io/project5/
+version: 1
