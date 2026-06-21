@@ -11,10 +11,10 @@ files = [
     "/.posit/publish/deployments/deployment-3DHB.toml",
     "/renv.lock",
     "/renv",
-    "/crashes_geospatial_2019.csv",
     "/project5.html",
     "/.Rprofile",
     "/project5_files",
+    "/clean_crashes.rds",
 ]
 validate = true
 product_type = "connect_cloud"
