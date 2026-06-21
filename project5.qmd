@@ -3,8 +3,8 @@ title: "2019 CA Crashes"
 format: 
   dashboard:
     theme:
-      light: flatly
-      dark: darkly
+      light: spacelab
+      dark: cyborg
     respect-user-color-scheme: true
 server: shiny
 ---
