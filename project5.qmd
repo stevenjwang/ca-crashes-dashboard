@@ -1,6 +1,11 @@
 ---
 title: "2019 CA Crashes"
-format: dashboard
+format: 
+  dashboard:
+    theme:
+      light: flatly
+      dark: darkly
+    respect-user-color-scheme: true
 server: shiny
 ---
 
@@ -15,12 +20,11 @@ library(plotly)        # web interactive plots
 library(ggiraph)       # make ggplots into interactive plots
 library(RColorBrewer)  # optional: nice color schemes
 
-crashes = read_csv("crashes_geospatial_2019.csv")
-crashes = crashes |> mutate(COUNTY = str_remove(LOCATION, ".*,\\s*"))
+crashes = read_rds("clean_crashes.rds")
 ```
 
 
-# {.sidebar width="300px"}
+# {.sidebar}
 
 
 ```{r}
@@ -28,7 +32,7 @@ crashes = crashes |> mutate(COUNTY = str_remove(LOCATION, ".*,\\s*"))
 selectInput(
   inputId = "county",
   label = "County:",
-  choices = sort(unique(str_to_title(crashes$COUNTY))),
+  choices = sort(unique(crashes$COUNTY)),
   selected = "Alameda")
 ```
 
@@ -46,8 +50,8 @@ selectInput(
 checkboxGroupInput(
   inputId = "type",
   label = "Collision type:",
-  choices = sort(unique(str_to_title(crashes$TYPE_OF_COLLISION))),
-  selected = sort(unique(str_to_title(crashes$TYPE_OF_COLLISION))))
+  choices = sort(unique(crashes$TYPE_OF_COLLISION)),
+  selected = sort(unique(crashes$TYPE_OF_COLLISION)))
 ```
 
 ```{r}
@@ -113,19 +117,21 @@ plotlyOutput(outputId = "plot")
 filtered_data = reactive({
   crashes %>%
     filter(
-      str_to_title(COUNTY) == input$county,
+      COUNTY == input$county,
       PCF_VIOL_CATEGORY == input$pcf,
-      str_to_title(TYPE_OF_COLLISION) %in% input$type,
+      TYPE_OF_COLLISION %in% input$type,
       DATETIME >= input$dates[1],
       DATETIME <= input$dates[2]
     )
 })
 
+ffiltered_data <- debounce(filtered_data, millis = 450)
+
 # 2. Render the Leaflet Map (Tab 1)
 output$map = renderLeaflet({
   pal = colorFactor(palette = "Set1", domain = crashes$COLLISION_SEVERITY)
   
-  leaflet(data = filtered_data()) %>%
+  leaflet(data = ffiltered_data()) %>%
     addProviderTiles(input$provider) %>%
     addCircleMarkers(
       lng = ~POINT_X, 
@@ -138,11 +144,9 @@ output$map = renderLeaflet({
                      "Type:", TYPE_OF_COLLISION))
 })
 
-
-# assemble graphic for tab 2
 output$plot = renderPlotly({
 ggplotly(
-  ggplot(filtered_data(), aes(x = TYPE_OF_COLLISION)) +
-    geom_bar() + theme_minimal())
+  ggplot(ffiltered_data(), aes(x = fct_infreq(TYPE_OF_COLLISION))) +
+    geom_bar() + theme_minimal() + labs(x = "Collision Type", y = "Count", title = "Crashes by Type in Selected County") + theme(axis.text.x = element_text(angle = 315, hjust = 1)))
 })
 ```
